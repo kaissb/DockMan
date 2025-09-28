@@ -1,0 +1,59 @@
+# Copyright (c) 2025 Bouali Consulting Inc.
+# Author: Kaiss Bouali (kaissb)
+# Company: Bouali Consulting Inc.
+# GitHub: https://github.com/kaissb
+
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./apps/api:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+      - go-modules:/go/pkg/mod
+    environment:
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - GIN_MODE=debug
+    depends_on:
+      - redis
+    networks:
+      - app-network
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://api:8080
+    depends_on:
+      - api
+    networks:
+      - app-network
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  go-modules:
+  redis-data:

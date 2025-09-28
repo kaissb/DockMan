@@ -1,0 +1,40 @@
+# Ignore project memory file
+# MEMORY
+
+# Ignore the prompt specification
+# PROMPT.md
+
+# Development files
+.env
+.env.local
+.env.development
+.env.production
+
+# Go files
+bin/
+/dist/
+
+# Node.js files
+node_modules/
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# SvelteKit build output
+.svelte-kit/
+/build/
+
+# Docker Compose development files
+docker-compose.override.yml
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Log files
+*.log
+
+# Test output
+coverage/

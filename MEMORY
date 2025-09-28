@@ -1,0 +1,98 @@
+# Project Memory Log
+## Initial Setup - Sun Sep 28 01:05:18 AM EDT 2025
+- Created monorepo structure with Go backend and SvelteKit frontend
+- Set up development environment with Docker Compose
+- Added .gitignore with proper exclusions
+
+## Next Steps
+- Implement container listing functionality
+- Set up project creation workflow
+- Named the project: "DockMan"
+
+## Container Operations - Sun Sep 28 01:08:50 AM EDT 2025
+- Implemented Docker Engine API integration
+
+## Container Operations - Sun Sep 28 01:09:17 AM EDT 2025
+- Started implementing container listing functionality
+
+## Container Listing - Sun Sep 28 01:11:43 AM EDT 2025
+- Implemented backend API endpoint for container listing
+- Created frontend UI for container listing
+
+## Development Environment - Sun Sep 28 01:24:55 AM EDT 2025
+- Updated Docker configuration for development
+  - Set Go version to 1.24 in API Dockerfile
+  - Improved web Dockerfile with better caching
+  - Added Redis service for future caching needs
+- Implemented dark mode support in the UI
+- Set up proper networking between services
+- Added environment variable configuration
+
+## UI and API Fixed - Sun Sep 28 01:54:07 AM EDT 2025
+- Resolved API server startup issues (port conflicts, syntax errors).
+- Fixed SvelteKit configuration (vite.config.js, app.html) to resolve 404 errors.
+- Implemented CORS middleware on the Go API to allow frontend connections.
+- The application is now running, and the frontend successfully fetches and displays the container list from the API.
+
+## Current Status
+- Development environment is stable and running locally.
+- API service is running and serving container data.
+- Web frontend is connected to the API and displaying a list of containers.
+
+## Docker Compose Fixed - Sun Sep 28 02:11:00 AM EDT 2025
+- Resolved Dockerfile issues for both API and web services.
+- Configured the API service to use `air` for live reloading within Docker.
+- Fixed all port conflicts (`8080`, `6379`, `5173`) that were preventing services from starting.
+- The entire application stack (API, web, Redis) is now running successfully via `docker-compose up`.
+
+## Current Status
+- Development environment is stable and running via Docker Compose.
+- API service is running with live reload.
+- Web frontend is connected to the API and displaying containers.
+
+## Known Issues
+- Dark mode has been implemented but requires full testing and verification.
+
+## Project CRUD Implemented - Sun Sep 28 02:19:10 AM EDT 2025
+- Implemented database layer using GORM and SQLite.
+- Created `Project` data model.
+- Built API endpoints for creating and listing projects.
+- Developed a frontend UI to manage projects.
+- Fixed all build issues related to cgo and the SQLite driver.
+
+## Service CRUD Implemented - Sun Sep 28 02:34:18 AM EDT 2025
+- Implemented `Environment` and `Service` data models.
+- Built API endpoints for creating and listing environments and services.
+- Developed a nested UI to manage the full Project -> Environment -> Service hierarchy.
+
+## Interactive Terminal - Completed - Sun Sep 28 03:00:25 AM EDT 2025
+- Implemented a backend WebSocket endpoint for interactive terminal access.
+- Added a terminal UI to the frontend using xterm.js, connected to the WebSocket.
+- Debugged and resolved multiple complex issues related to WebSocket connection and server-side rendering.
+
+## Project Detail Page - Completed - Sun Sep 28 03:04:35 AM EDT 2025
+- Created a `GET /api/projects/:id` endpoint to fetch a project with all its nested environments and services.
+- Built a dynamic page at `/projects/[id]` to display the detailed project view.
+- Refactored the main projects page to be a simple list that links to the new detail pages.
+
+## Container Deletion - Completed - Sun Sep 28 03:09:05 AM EDT 2025
+- Added a `DELETE /api/containers/:id` endpoint to the backend.
+- Added a 'Delete' button with a confirmation dialog to the container list UI.
+
+## Image Management - Completed - Sun Sep 28 03:20:04 AM EDT 2025
+- Implemented API endpoints and UI for listing, pulling, and deleting Docker images.
+- Added a safeguard to prevent the application from deleting its own images.
+
+## Codebase Cleanup - Completed - Sun Sep 28 03:48:25 AM EDT 2025
+- Updated the frontend Dockerfile to a more secure base image (node:20-alpine).
+- Fixed all persistent SvelteKit type errors by correcting imports and adding explicit types.
+- Built a robust, mock-based testing framework for the Go backend using an in-memory SQLite database.
+- Added a comprehensive suite of unit tests covering all Docker API handlers.
+
+## Copyright Headers - Completed - Sun Sep 28 03:51:57 AM EDT 2025
+- Added a standard MIT License file to the project root.
+- Added copyright headers to all Go, Svelte, JS, TS, CSS, Dockerfile, and YAML files.
+
+## Next Steps
+1. Begin implementation of Docker Compose management features.
+2. Add live resource monitoring (CPU/memory) to the container list.

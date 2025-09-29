@@ -27,7 +27,7 @@ func main() {
 
 	// Initialize Database
 	database.Init()
-	database.Migrate(&models.Project{}, &models.Environment{}, &models.Service{})
+	database.Migrate(&models.Project{}, &models.Environment{}, &models.Service{}, &models.EnvironmentVariable{})
 
 	// Setup Router
 	r := router.Setup()

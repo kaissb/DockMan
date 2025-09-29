@@ -12,5 +12,6 @@ type Environment struct {
 	gorm.Model
 	Name      string    `json:"name"`
 	ProjectID uint      `json:"project_id"`
-	Services  []Service `json:"services"`
+	Services  []Service `json:"services,omitempty"`
+	Variables []EnvironmentVariable `json:"variables,omitempty"`
 }

@@ -8,50 +8,57 @@
   import { onMount } from 'svelte';
 
   let images: any[] = [];
-  let error: string | null = null;
-  let loading = true;
-  let newImageName = '';
+  let imageName = '';
   let pullLog = '';
   let isPulling = false;
 
   async function fetchImages() {
-    error = null;
-    loading = true;
     try {
       const response = await fetch('http://localhost:8080/images');
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error('Failed to fetch images');
       }
-      const rawImages = await response.json();
-      images = rawImages.filter((img: any) => img.RepoTags && img.RepoTags[0] !== '<none>:<none>');
+      images = await response.json();
     } catch (err) {
-      error = (err as Error).message;
-    } finally {
-      loading = false;
+      alert(`Error: ${(err as Error).message}`);
     }
   }
 
   async function pullImage() {
-    if (!newImageName) return;
+    if (!imageName) {
+      alert('Please enter an image name.');
+      return;
+    }
     isPulling = true;
-    pullLog = `Pulling image: ${newImageName}...\n`;
+    pullLog = `Pulling image: ${imageName}...\n`;
     try {
       const response = await fetch('http://localhost:8080/images/pull', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newImageName }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name: imageName }),
       });
 
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-
-      while (true) {
-        const { done, value } = await reader?.read() || { done: true };
-        if (done) break;
-        pullLog += decoder.decode(value, { stream: true });
+      if (!response.body) {
+        throw new Error('Response body is null');
       }
 
-      newImageName = '';
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let done = false;
+
+      while (!done) {
+        const { value, done: readerDone } = await reader.read();
+        done = readerDone;
+        if (value) {
+          const chunk = decoder.decode(value, { stream: true });
+          pullLog += chunk;
+        }
+      }
+
+      pullLog += `\nImage ${imageName} pulled successfully.`;
+      imageName = '';
       await fetchImages();
     } catch (err) {
       pullLog += `\nError pulling image: ${(err as Error).message}`;
@@ -61,14 +68,16 @@
   }
 
   async function deleteImage(imageId: string) {
-    if (!confirm('Are you sure you want to delete this image?')) return;
+    if (!confirm('Are you sure you want to delete this image? This cannot be undone.')) {
+      return;
+    }
     try {
       const response = await fetch(`http://localhost:8080/images/${imageId}`, {
         method: 'DELETE',
       });
+      const result = await response.json();
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete image');
+        throw new Error(result.error || 'Failed to delete image');
       }
       await fetchImages();
     } catch (err) {
@@ -104,7 +113,7 @@
   <div class="pull-image-form">
     <h2>Pull New Image</h2>
     <form on:submit|preventDefault={pullImage}>
-      <input type="text" bind:value={newImageName} placeholder="e.g., ubuntu:latest" required disabled={isPulling} />
+      <input type="text" bind:value={imageName} placeholder="e.g., ubuntu:latest" required />
       <button type="submit" disabled={isPulling}>{isPulling ? 'Pulling...' : 'Pull Image'}</button>
     </form>
     {#if pullLog}
@@ -112,66 +121,70 @@
     {/if}
   </div>
 
-  {#if loading}
-    <p>Loading images...</p>
-  {:else if error}
-    <p class="error">{error}</p>
-  {:else}
-    <table>
-      <thead>
+  <table>
+    <thead>
+      <tr>
+        <th>Tag</th>
+        <th>Image ID</th>
+        <th>Created</th>
+        <th>Size</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {#each images as image}
         <tr>
-          <th>Tag</th>
-          <th>ID</th>
-          <th>Created</th>
-          <th>Size</th>
-          <th>Actions</th>
+          <td><a href="/images/{image.ID}">{image.RepoTags && image.RepoTags.length > 0 ? image.RepoTags.join(', ') : 'N/A'}</a></td>
+          <td>{image.ID.replace('sha256:', '').slice(0, 12)}</td>
+          <td>{formatDate(image.Created)}</td>
+          <td>{formatSize(image.Size)}</td>
+          <td>
+            <button class="button-danger" on:click={() => deleteImage(image.ID)} disabled={isProtectedImage(image)}>Delete</button>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-        {#each images as image}
-          <tr>
-            <td>{image.RepoTags[0]}</td>
-            <td>{image.Id.replace('sha256:', '').slice(0, 12)}</td>
-            <td>{formatDate(image.Created)}</td>
-            <td>{formatSize(image.Size)}</td>
-            <td>
-              <button class="button-danger" on:click={() => deleteImage(image.Id)} disabled={isProtectedImage(image)}>Delete</button>
-            </td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
-  {/if}
+      {/each}
+    </tbody>
+  </table>
 </main>
 
 <style>
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 1rem;
-  }
-  th, td {
-    border: 1px solid #ddd;
-    padding: 8px;
-    text-align: left;
-  }
-  th {
-    background-color: #f2f2f2;
-  }
-  .error {
-    color: red;
+  main {
+    padding: 2rem;
   }
   .pull-image-form {
     margin-bottom: 2rem;
+    background: #2a2a2a;
+    padding: 1.5rem;
+    border-radius: 8px;
+  }
+  .pull-image-form form {
+    display: flex;
+    gap: 1rem;
+  }
+  .pull-image-form input {
+    flex-grow: 1;
   }
   .pull-log {
-    background-color: #222;
+    margin-top: 1rem;
+    background: #111;
     color: #eee;
     padding: 1rem;
     border-radius: 4px;
-    max-height: 300px;
+    max-height: 200px;
     overflow-y: auto;
     white-space: pre-wrap;
     word-wrap: break-word;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  th, td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid #333;
+  }
+  th {
+    background-color: #333;
   }
 </style>

@@ -8,44 +8,60 @@
   import type { PageData } from './$types';
 
   export let data: PageData;
+  let replicas: { [key: string]: number } = {};
+
+  async function scaleService(serviceId: number, subServiceName: string) {
+    const numReplicas = replicas[subServiceName] || 1;
+    const response = await fetch(`http://localhost:8080/api/services/${serviceId}/scale`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sub_service_name: subServiceName, replicas: numReplicas }),
+    });
+
+    if (response.ok) {
+      alert(`Service ${subServiceName} scaled to ${numReplicas} replicas.`);
+    } else {
+      const error = await response.json();
+      alert(`Failed to scale service: ${error.error}`);
+    }
+  }
 
   async function runServiceAction(serviceId: number, action: 'up' | 'down') {
     const response = await fetch(`http://localhost:8080/api/services/${serviceId}/${action}`, {
       method: 'POST',
     });
-    const result = await response.json();
-    alert(result.output || result.message || result.error);
+
     if (response.ok) {
-      location.reload();
+      alert(`Service action '${action}' completed successfully.`);
+    } else {
+      const error = await response.json();
+      alert(`Failed to perform action: ${error.error}`);
     }
   }
 </script>
 
 <main>
   {#if data.service}
-    <a href="/projects/{data.service.project_id}">&larr; Back to Project</a>
-    <h1>{data.service.name} <span class="service-type">({data.service.type})</span></h1>
+    <h1>{data.service.name}</h1>
+    <p class="service-type">Type: {data.service.type}</p>
 
-    {#if data.service.type === 'container'}
-      <p><strong>Image:</strong> <code>{data.service.image}</code></p>
-      <p><strong>Container ID:</strong> <code>{data.service.container_id?.slice(0, 12) || 'N/A'}</code></p>
-    {:else if data.service.type === 'compose'}
-      <p><strong>Compose File Path:</strong> <code>{data.service.compose_path}</code></p>
-    {/if}
-
-    <div class="actions">
+    {#if data.service.type === 'compose'}
+      <div class="actions">
         <button on:click={() => runServiceAction(data.service.ID, 'up')}>Up</button>
         <button class="button-danger" on:click={() => runServiceAction(data.service.ID, 'down')}>Down</button>
-    </div>
+      </div>
 
-    {#if data.service.type === 'compose' && data.service.SubServices?.length > 0}
       <div class="sub-services">
         <h2>Sub-Services (from Compose file)</h2>
         <ul>
           {#each data.service.SubServices as subService}
             <li>
               <strong>{subService.name}</strong> ({subService.type})
-              <p>Image: <code>{subService.image || 'Not specified'}</code></p>
+              <p>Image: <code>{subService.image}</code></p>
+              <div class="scale-controls">
+                <input type="number" min="0" bind:value={replicas[subService.name]} placeholder="Replicas" />
+                <button on:click={() => scaleService(data.service.ID, subService.name)}>Scale</button>
+              </div>
             </li>
           {/each}
         </ul>
@@ -62,25 +78,34 @@
   .service-type {
     font-size: 0.8em;
     color: #666;
-    font-weight: normal;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
   }
   .actions {
-    margin: 1rem 0;
-  }
-   .actions button {
-    margin-right: 0.5rem;
+    margin-bottom: 2rem;
   }
   .sub-services {
     margin-top: 2rem;
+    border-top: 1px solid #eee;
+    padding-top: 1rem;
   }
   ul {
-    list-style-type: none;
-    padding-left: 0;
+    list-style: none;
+    padding: 0;
   }
   li {
-    background-color: #f9f9f9;
+    background: #2a2a2a;
     padding: 1rem;
     border-radius: 4px;
     margin-bottom: 1rem;
+  }
+  .scale-controls {
+    margin-top: 0.5rem;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+  .scale-controls input {
+    width: 80px;
   }
 </style>

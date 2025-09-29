@@ -7,100 +7,42 @@ package handlers
 
 import (
 	"context"
-	"errors"
 	"io"
 	"log"
 	"net/http"
 	"strings"
 
-	"docker-manager/api/internal/database"
-	"docker-manager/api/internal/models"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/client"
 	"github.com/gin-gonic/gin"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 // DockerClientInterface defines the methods we use from the Docker client.
-// This makes the client mockable for testing.
+// This helps in mocking the Docker client for tests.
 type DockerClientInterface interface {
-	ContainerList(context.Context, container.ListOptions) ([]types.Container, error)
-	ContainerStart(context.Context, string, container.StartOptions) error
-	ContainerStop(context.Context, string, container.StopOptions) error
-	ContainerRestart(context.Context, string, container.StopOptions) error
-	ContainerRemove(context.Context, string, container.RemoveOptions) error
-	ImageList(context.Context, types.ImageListOptions) ([]types.ImageSummary, error)
-	ImagePull(context.Context, string, types.ImagePullOptions) (io.ReadCloser, error)
-	ImageRemove(context.Context, string, types.ImageRemoveOptions) ([]types.ImageDeleteResponseItem, error)
-	ImageInspectWithRaw(context.Context, string) (types.ImageInspect, []byte, error)
-	ContainerCreate(context.Context, *container.Config, *container.HostConfig, *network.NetworkingConfig, *v1.Platform, string) (container.CreateResponse, error)
-	ContainerLogs(context.Context, string, container.LogsOptions) (io.ReadCloser, error)
-	ContainerInspect(context.Context, string) (types.ContainerJSON, error)
+	ContainerList(ctx context.Context, options container.ListOptions) ([]types.Container, error)
+	ContainerStart(ctx context.Context, containerID string, options container.StartOptions) error
+	ContainerStop(ctx context.Context, containerID string, options container.StopOptions) error
+	ContainerRestart(ctx context.Context, containerID string, options container.StopOptions) error
+	ContainerRemove(ctx context.Context, containerID string, options container.RemoveOptions) error
+	ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, platform *v1.Platform, containerName string) (container.CreateResponse, error)
+	ContainerLogs(ctx context.Context, container string, options container.LogsOptions) (io.ReadCloser, error)
+	ContainerInspect(ctx context.Context, containerID string) (types.ContainerJSON, error)
+	ContainerStats(ctx context.Context, containerID string, stream bool) (types.ContainerStats, error)
 	ContainerExecCreate(ctx context.Context, container string, config types.ExecConfig) (types.IDResponse, error)
 	ContainerExecAttach(ctx context.Context, execID string, config types.ExecStartCheck) (types.HijackedResponse, error)
 	ContainerExecInspect(ctx context.Context, execID string) (types.ContainerExecInspect, error)
-	ContainerStats(ctx context.Context, containerID string, stream bool) (types.ContainerStats, error)
+
+	ImageList(ctx context.Context, options types.ImageListOptions) ([]types.ImageSummary, error)
+	ImagePull(ctx context.Context, refStr string, options types.ImagePullOptions) (io.ReadCloser, error)
+	ImageRemove(ctx context.Context, imageID string, options types.ImageRemoveOptions) ([]types.ImageDeleteResponseItem, error)
+	ImageInspectWithRaw(ctx context.Context, imageID string) (types.ImageInspect, []byte, error)
 }
 
+// DockerClient is an instance of the Docker client that satisfies the DockerClientInterface.
 var DockerClient DockerClientInterface
-
-// ListContainers handles listing all containers.
-func ListContainers(c *gin.Context) {
-	containers, err := DockerClient.ContainerList(context.Background(), container.ListOptions{All: true})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list containers"})
-		return
-	}
-	c.JSON(http.StatusOK, containers)
-}
-
-// StartContainer handles starting a container.
-func StartContainer(c *gin.Context) {
-	containerID := c.Param("id")
-	if err := DockerClient.ContainerStart(context.Background(), containerID, container.StartOptions{}); err != nil {
-		var errContainerAlreadyStarted interface {
-			StatusCode() int
-		}
-		if errors.As(err, &errContainerAlreadyStarted) && errContainerAlreadyStarted.StatusCode() == http.StatusNotModified {
-			c.JSON(http.StatusOK, gin.H{"status": "already running"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"status": "started"})
-}
-
-// StopContainer handles stopping a container.
-func StopContainer(c *gin.Context) {
-	containerID := c.Param("id")
-	timeout := 10
-	if err := DockerClient.ContainerStop(context.Background(), containerID, container.StopOptions{Timeout: &timeout}); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"status": "stopped"})
-}
-
-// PullImage handles pulling a Docker image from a registry.
-func PullImage(c *gin.Context) {
-	var body struct {
-		Name string `json:"name"`
-	}
-	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid image name"})
-		return
-	}
-	out, err := DockerClient.ImagePull(context.Background(), body.Name, types.ImagePullOptions{})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to pull image"})
-		return
-	}
-	defer out.Close()
-	c.Writer.Header().Set("Content-Type", "application/octet-stream")
-	io.Copy(c.Writer, out)
-}
 
 // DeleteImage handles deleting a Docker image.
 func DeleteImage(c *gin.Context) {
@@ -112,22 +54,36 @@ func DeleteImage(c *gin.Context) {
 	}
 	for _, tag := range inspect.RepoTags {
 		if strings.Contains(tag, "dockman") {
-			c.JSON(http.StatusForbidden, gin.H{"error": "This image belongs to the DockMan application and cannot be deleted."}) 
+			c.JSON(http.StatusForbidden, gin.H{"error": "This image belongs to the DockMan application and cannot be deleted."})
 			return
 		}
 	}
 	_, err = DockerClient.ImageRemove(context.Background(), imageID, types.ImageRemoveOptions{Force: false})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove image"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "deleted"})
 }
 
+// GetImageDetails returns detailed information about a single image.
+func GetImageDetails(c *gin.Context) {
+	imageID := c.Param("id")
+	inspect, _, err := DockerClient.ImageInspectWithRaw(context.Background(), imageID)
+	if err != nil {
+		if client.IsErrNotFound(err) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Image not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to inspect image: " + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, inspect)
+}
+
 // ListImages handles listing all Docker images.
 func ListImages(c *gin.Context) {
 	images, err := DockerClient.ImageList(context.Background(), types.ImageListOptions{})
-	if err != nil {
+{{ ... }}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list images"})
 		return
 	}

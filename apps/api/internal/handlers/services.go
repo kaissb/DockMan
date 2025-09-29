@@ -4,9 +4,8 @@
 // GitHub: https://github.com/kaissb
 
 package handlers
-
 import (
-	"io/ioutil"
+	"fmt"
 	"net/http"
 	"os/exec"
 	"path/filepath"
@@ -15,9 +14,7 @@ import (
 	"docker-manager/api/internal/database"
 	"docker-manager/api/internal/models"
 	"github.com/gin-gonic/gin"
-	"gopkg.in/yaml.v3"
 )
-
 // ListServices handles listing all top-level services for an environment.
 func ListServices(c *gin.Context) {
 	environmentID := c.Param("id")
@@ -29,7 +26,6 @@ func ListServices(c *gin.Context) {
 	c.JSON(http.StatusOK, services)
 }
 
-// GetServiceDetails handles retrieving the details of a single service, including sub-services.
 func GetServiceDetails(c *gin.Context) {
 	serviceID := c.Param("id")
 	var service models.Service
@@ -38,15 +34,8 @@ func GetServiceDetails(c *gin.Context) {
 		return
 	}
 
-	if service.Type == "compose" {
-		updateSubServicesFromComposeFile(&service)
-		// Reload to get the newly created sub-services
-		database.DB.Preload("SubServices").First(&service, serviceID)
-	}
-
 	c.JSON(http.StatusOK, service)
 }
-
 // CreateService handles the creation of a new service in an environment.
 func CreateService(c *gin.Context) {
 	environmentID := c.Param("id")
@@ -103,55 +92,67 @@ func UpService(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to run docker-compose up", "output": string(output)})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"message": "Compose service started", "output": string(output)})
 	}
 }
 
 // DownService handles stopping a service.
 func DownService(c *gin.Context) {
-	serviceID := c.Param("id") // Corrected to use ID from the URL path
+	// Implementation for stopping a service
+	serviceID := c.Param("id")
 	var service models.Service
 	if err := database.DB.First(&service, serviceID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Service not found"})
 		return
 	}
 
-	switch service.Type {
-	case "container":
-		c.JSON(http.StatusNotImplemented, gin.H{"message": "Container stop not implemented yet"})
-	case "compose":
-		cmd := exec.Command("docker-compose", "-f", service.ComposePath, "down")
-		cmd.Dir = filepath.Dir(service.ComposePath)
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to run docker-compose down", "output": string(output)})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{"message": "Compose service stopped", "output": string(output)})
+	if service.Type != "compose" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Down operation is only for compose services"})
+		return
 	}
+
+	cmd := exec.Command("docker-compose", "-f", service.ComposePath, "down")
+	if err := cmd.Run(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to bring down service: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Service brought down successfully"})
 }
 
-func updateSubServicesFromComposeFile(service *models.Service) {
-	yamlFile, err := ioutil.ReadFile(service.ComposePath)
-	if err != nil { return }
-
-	var composeConfig struct {
-		Services map[string]struct {
-			Image string `yaml:"image"`
-		} `yaml:"services"`
+// ScaleService scales a specific service within a compose stack.
+func ScaleService(c *gin.Context) {
+	type ScaleRequest struct {
+		SubServiceName string `json:"sub_service_name"`
+		Replicas       int    `json:"replicas"`
 	}
-	if yaml.Unmarshal(yamlFile, &composeConfig) != nil { return }
 
-	database.DB.Where("parent_service_id = ?", service.ID).Delete(&models.Service{})
+	serviceID := c.Param("id")
+	var request ScaleRequest
 
-	for name, compService := range composeConfig.Services {
-		subService := models.Service{
-			Name:            name,
-			Type:            "container",
-			Image:           compService.Image,
-			ParentServiceID: &service.ID,
-			EnvironmentID:   service.EnvironmentID,
-		}
-		database.DB.Create(&subService)
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
 	}
+
+	var service models.Service
+	if err := database.DB.First(&service, serviceID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Service not found"})
+		return
+	}
+
+	if service.Type != "compose" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Scale operation is only for compose services"})
+		return
+	}
+
+	scaleArg := fmt.Sprintf("%s=%d", request.SubServiceName, request.Replicas)
+	cmd := exec.Command("docker", "compose", "-f", service.ComposePath, "up", "-d", "--scale", scaleArg)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to scale service: %s", string(output))})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Service %s scaled to %d replicas", request.SubServiceName, request.Replicas)})
 }

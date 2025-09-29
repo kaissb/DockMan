@@ -93,6 +93,17 @@
 - Added a standard MIT License file to the project root.
 - Added copyright headers to all Go, Svelte, JS, TS, CSS, Dockerfile, and YAML files.
 
+## Unified Service Model & Live Monitoring - Completed - Sun Sep 28 12:51:15 AM EDT 2025
+- Refactored the backend to use a unified, hierarchical 'Service' model for containers and Compose stacks.
+- Implemented a service detail page to display sub-services for Compose projects.
+- Added a live resource monitoring feature with WebSocket-powered charts for CPU and Memory usage on the container list page.
+- Resolved numerous complex build and runtime errors across the stack, including Go version mismatches and frontend dependency/caching issues, to bring the application to a stable state.
+
+## Environment Variable Management - Completed - Sun Sep 28 22:28:18 EDT 2025
+- Implemented a secure system for managing environment variables, stored encrypted (AES-256) in the main database.
+- Added full CRUD API endpoints and a frontend UI to add, view (with a show/hide toggle), and delete variables per environment.
+- Diagnosed and resolved several complex backend issues related to encryption key size and Docker volume synchronization.
+
 ## Next Steps
-1. Begin implementation of Docker Compose management features.
-2. Add live resource monitoring (CPU/memory) to the container list.
+1. Implement real-time container logs.
+2. Add more detailed container operations (e.g., scaling, network management).

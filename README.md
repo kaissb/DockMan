@@ -14,15 +14,19 @@ A modern, open-source Docker management platform with a beautiful web interface.
 
 
 ### ✅ Completed Features
+- [x] **Unified Service Management**
+  - [x] A hierarchical service model for containers, Compose stacks, and databases.
+  - [x] Create services directly from the project detail page.
+  - [x] View detailed service information, including sub-services for Compose stacks.
 - [x] **Project Management**
   - [x] Create/edit/delete projects (Create/List implemented)
   - [ ] Project dashboard with overview stats
-  - [x] Project detail page (In Progress)
+  - [x] Project detail page
 
 ### 🚧 In Progress Features
 - [x] **Environment Management** 
   - [x] Multiple environments per project (dev, staging, prod)
-  - [ ] Environment variable management
+  - [x] Environment variable management
 {{ ... }}
   - [ ] Environment cloning/duplication
   - [ ] Environment comparison tool
@@ -32,31 +36,31 @@ A modern, open-source Docker management platform with a beautiful web interface.
 #### Core Docker Management
 - [ ] **Container Operations**
   - [x] List running containers
-  - [ ] Start/stop/restart containers
-  - [x] Delete containers (In Progress)
-  - [ ] Container resource monitoring (CPU, memory, disk)
-  - [ ] Real-time container logs
-  - [x] Interactive terminal access via web UI (In Progress)
+  - [x] Start/stop/restart containers
+  - [x] Delete containers
+  - [x] Container resource monitoring (Live CPU & Memory charts)
+  - [x] Real-time container logs
+  - [x] Interactive terminal access via web UI
 
 - [x] **Image Management**
 - [x] **Codebase Cleanup & Quality**
-  - [ ] Pull Docker images with progress tracking
-  - [ ] List local images
-  - [ ] Remove unused images
-  - [ ] Image size and layer information
+  - [x] Pull Docker images with progress tracking
+  - [x] List local images
+  - [x] Remove unused images
+  - [x] Image size and layer information
 
-- [ ] **Docker Compose Management**
-  - [ ] Deploy Docker Compose files
-  - [ ] Start/stop/restart compose services
+- [x] **Docker Compose Management**
+  - [x] Deploy Docker Compose files (via Service creation)
+  - [x] Start/stop compose services
   - [ ] Scale services up/down
-  - [ ] View compose service dependencies
+  - [x] View compose service dependencies (as sub-services)
   - [ ] Edit compose files with syntax highlighting
   - [ ] Compose service health checks
 
 #### Service Management
 - [ ] **Service Deployment**
   - [x] Deploy single containers (via Service creation)
-  - [ ] Deploy compose stacks
+  - [x] Deploy compose stacks
   - [ ] Service status monitoring
   - [ ] Deployment history and rollback
   - [ ] Service dependency management

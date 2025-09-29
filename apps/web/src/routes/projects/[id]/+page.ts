@@ -21,7 +21,17 @@ export const load: PageLoad = async ({ fetch, params }) => {
     if (!environmentsRes.ok) {
       throw new Error('Could not load environments');
     }
-    project.Environments = await environmentsRes.json();
+    const environments = await environmentsRes.json();
+
+    // For each environment, fetch its variables
+    for (const env of environments) {
+        const variablesRes = await fetch(`http://localhost:8080/api/environments/${env.ID}/variables`);
+        if (variablesRes.ok) {
+            env.Variables = await variablesRes.json();
+        }
+    }
+
+    project.Environments = environments;
 
     return { project };
 

@@ -62,6 +62,12 @@ func Setup() *gin.Engine {
 		{
 			environments.POST("/:id/services", handlers.CreateService)
 			environments.GET("/:id/services", handlers.ListServices)
+
+			// Environment Variables
+			environments.POST("/:id/variables", handlers.CreateEnvironmentVariable)
+			environments.GET("/:id/variables", handlers.ListEnvironmentVariables)
+			environments.PUT("/:id/variables/:varId", handlers.UpdateEnvironmentVariable)
+			environments.DELETE("/:id/variables/:varId", handlers.DeleteEnvironmentVariable)
 		}
 
 		services := api.Group("/services")
@@ -69,6 +75,7 @@ func Setup() *gin.Engine {
 			services.GET("/:id", handlers.GetServiceDetails)
 			services.POST("/:id/up", handlers.UpService)
 			services.POST("/:id/down", handlers.DownService)
+			services.POST("/:id/scale", handlers.ScaleService)
 		}
 	}
 

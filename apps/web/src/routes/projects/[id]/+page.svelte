@@ -8,6 +8,7 @@
   import type { PageData } from './$types';
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
+  import EnvironmentVariables from '$lib/components/EnvironmentVariables.svelte';
 
   export let data: PageData;
 
@@ -16,6 +17,25 @@
   let newServiceImage = '';
   let newServiceComposePath = '';
   let selectedEnvironmentId: number | null = null;
+
+  async function loadProject() {
+    const projectId = $page.params.id;
+    const projectRes = await fetch(`http://localhost:8080/api/projects/${projectId}`);
+    if (projectRes.ok) {
+      data.project = await projectRes.json();
+      const environmentsRes = await fetch(`http://localhost:8080/api/projects/${projectId}/environments`);
+      if (environmentsRes.ok) {
+        const environments = await environmentsRes.json();
+        for (const env of environments) {
+            const variablesRes = await fetch(`http://localhost:8080/api/environments/${env.ID}/variables`);
+            if (variablesRes.ok) {
+                env.Variables = await variablesRes.json();
+            }
+        }
+        data.project.Environments = environments;
+      }
+    }
+  }
 
   async function addService() {
     if (!selectedEnvironmentId) {
@@ -71,6 +91,8 @@
       {#each data.project.Environments as environment}
         <div class="environment-card">
           <h3>{environment.name}</h3>
+
+          <EnvironmentVariables variables={environment.Variables} environmentId={environment.ID} on:update={loadProject} />
           
           <h4>Services</h4>
           {#if environment.Services && environment.Services.length > 0}
